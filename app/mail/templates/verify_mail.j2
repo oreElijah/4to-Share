@@ -1,0 +1,32 @@
+{% extends "base.j2" %}
+
+{% block header %}Verify Your Email{% endblock %}
+
+{% block content %}
+    <h2>Hello {{ name or "there" }},</h2>
+
+    <p>
+      Thank you for creating an account with 4to Share. To complete your
+      registration, please confirm your email address by clicking the button
+      below.
+    </p>
+
+      <a href="{{ verification_link }}" style="background-color: #007BFF; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; display: inline-block;">
+        Verify Email
+      </a>
+
+
+    <p>
+      If the button above does not work, copy and paste the link below into your browser:
+    </p>
+
+    <p>{{ verification_link }}</p>
+
+    <p>
+      If you did not create this account, you can safely ignore this email.
+    </p>
+
+    <p>
+      Best regards,<br />
+    </p>
+{% endblock %}
