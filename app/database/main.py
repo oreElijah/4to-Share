@@ -6,7 +6,11 @@ from settings.config import GlobalConfig as Config
 
 async_database_uri = Config.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-engine = create_async_engine(async_database_uri)
+engine = create_async_engine(
+    async_database_uri,
+    pool_pre_ping=True,
+    pool_recycle=300,
+)
 
 async def init_db():
     async with engine.begin() as conn:

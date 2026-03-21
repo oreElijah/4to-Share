@@ -1,16 +1,21 @@
 import os
-
 import streamlit as st
 import requests
 import urllib.parse
 import base64
+from streamlit.errors import StreamlitSecretNotFoundError
 
 
 st.set_page_config(page_title="4to Share", page_icon=":camera:", layout="wide")
 
-API_BASE_URL = str(
-    st.secrets.get("API_BASE_URL", os.getenv("API_BASE_URL", "http://localhost:8000"))
-).rstrip("/")
+def resolve_api_base_url() -> str:
+    try:
+        return str(st.secrets.get("API_BASE_URL", os.getenv("API_BASE_URL", "http://localhost:8000"))).rstrip("/")
+    except StreamlitSecretNotFoundError:
+        return str(os.getenv("API_BASE_URL", "http://localhost:8000")).rstrip("/")
+
+
+API_BASE_URL = resolve_api_base_url()
 
 if "token" not in st.session_state:
     st.session_state.token = None

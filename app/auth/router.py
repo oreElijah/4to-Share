@@ -41,7 +41,7 @@ async def create_user(
             status_code=status.HTTP_201_CREATED
         )
     
-@auth_router.get("/verify/{token}", response_model=HTTPResponse[RegisterResponseSchema])
+@auth_router.get("/verify/{token}")
 async def verify_email(user_service: Annotated[UserService, Depends(UserService)],token: str):
     token_data = decode_url_safe_token(token)
 
@@ -49,7 +49,7 @@ async def verify_email(user_service: Annotated[UserService, Depends(UserService)
     user = await user_service.get_user_by_email(email)
 
     await user_service.update_user(user, {"is_verified": True}) # type: ignore
-    return {"message": "Email verified successfully", "data": user}
+    return {"message": "Email verified successfully"}
 
 @auth_router.post("/login/", response_model=HTTPResponse[LoginResponseSchema])
 async def login_user(auth_service: Annotated[AuthService, Depends(AuthService)], user_service: Annotated[UserService, Depends(UserService)], login_schema: LoginRequestSchema):
