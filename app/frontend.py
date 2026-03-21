@@ -16,6 +16,7 @@ def resolve_api_base_url() -> str:
 
 
 API_BASE_URL = resolve_api_base_url()
+REQUEST_TIMEOUT = 20
 
 if "token" not in st.session_state:
     st.session_state.token = None
@@ -32,6 +33,17 @@ def get_header():
 
 def api_url(path: str) -> str:
     return f"{API_BASE_URL}{path}"
+
+
+def perform_request(method: str, path: str, **kwargs) -> requests.Response | None:
+    try:
+        return requests.request(method, api_url(path), timeout=REQUEST_TIMEOUT, **kwargs)
+    except requests.RequestException:
+        st.error(
+            f"Cannot reach backend at {API_BASE_URL}. "
+            "Set API_BASE_URL in Streamlit secrets to your Render backend URL."
+        )
+        return None
 
 
 def parse_error(response: requests.Response, fallback: str) -> str:
@@ -62,16 +74,20 @@ def login_page():
             "password": password
         }
 
-        response = requests.post(api_url("/v1/auth/login/"), json=login_data)
+        response = perform_request("POST", "/v1/auth/login/", json=login_data)
+        if response is None:
+            return
+
         if response.status_code == 200:
             data = response.json()
             st.session_state.token = data["data"]["access_token"]
-            profile_response = requests.get(
-                api_url("/v1/user/profile/"),
+            profile_response = perform_request(
+                "GET",
+                "/v1/user/profile/",
                 headers={"Authorization": f"Bearer {st.session_state.token}"}
             )
 
-            if profile_response.status_code == 200:
+            if profile_response is not None and profile_response.status_code == 200:
                 st.session_state.user = profile_response.json().get("data")
             else:
                 st.session_state.user = None
@@ -103,7 +119,10 @@ def register_page():
             "password": password
         }
 
-        response = requests.post(api_url("/v1/auth/register/"), json=register_data)
+        response = perform_request("POST", "/v1/auth/register/", json=register_data)
+        if response is None:
+            return
+
         if response.status_code == 201:
             st.success("Registration successful. Please check your email to verify your account.")
         else:
@@ -119,10 +138,14 @@ def forgot_password_page():
     
     if st.button("Send Reset Email", type="primary", use_container_width=True):
         if email:
-            response = requests.post(
-                api_url("/v1/auth/forgot_password/"), 
+            response = perform_request(
+                "POST",
+                "/v1/auth/forgot_password/", 
                 json={"email": email}
             )
+            if response is None:
+                return
+
             if response.status_code == 202:
                 st.success("Password reset email sent. Please check your email for instructions.")
             elif response.status_code == 404:
@@ -148,10 +171,14 @@ def reset_password_page(token: str):
             st.error("Passwords do not match.")
         else:
             if st.button("Reset Password", type="primary", use_container_width=True):
-                response = requests.post(
-                    api_url(f"/v1/auth/reset_password/{token}"),
+                response = perform_request(
+                    "POST",
+                    f"/v1/auth/reset_password/{token}",
                     json={"new_password": new_password}
                 )
+                if response is None:
+                    return
+
                 if response.status_code == 200:
                     st.success("Password reset successful. You can now log in with your new password.")
                     st.balloons()
@@ -174,7 +201,7 @@ def authenticated_home():
         st.sidebar.title("Hi there")
 
     if st.sidebar.button("Logout"):
-        response = requests.get(api_url("/v1/auth/logout/"), headers=get_header())
+        perform_request("GET", "/v1/auth/logout/", headers=get_header())
         st.session_state.user = None
         st.session_state.token = None
         switch_page("login")
@@ -198,7 +225,10 @@ def upload_page():
             data = {"caption": caption}
             headers = get_header()
 
-            response = requests.post(api_url("/v1/post/create_post/"), files=files, data=data, headers=headers)
+            response = perform_request("POST", "/v1/post/create_post/", files=files, data=data, headers=headers)
+            if response is None:
+                return
+
             if response.status_code == 201:
                 st.success("Posted")
             else:
@@ -234,7 +264,10 @@ def create_transformed_url(original_url, transformation_params, caption=None):
 def feed_page():
     st.title("Home")
 
-    response = requests.get(api_url("/v1/post/feed"), headers=get_header())
+    response = perform_request("GET", "/v1/post/feed", headers=get_header())
+    if response is None:
+        return
+
     if response.status_code == 200:
         posts = response.json()["data"]["post"]
 
@@ -251,7 +284,10 @@ def feed_page():
             with col2:
                 if post.get('is_owner', False):
                     if st.button("🗑️", key=f"delete_{post['id']}", help="Delete post"):
-                        response = requests.delete(api_url(f"/v1/post/delete/{post['id']}"), headers=get_header())
+                        response = perform_request("DELETE", f"/v1/post/delete/{post['id']}", headers=get_header())
+                        if response is None:
+                            return
+
                         if response.status_code == 200:
                             st.success("Post deleted!")
                             st.rerun()
