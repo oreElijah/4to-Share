@@ -8,12 +8,21 @@ from fastapi import Depends
 from jinja2 import Environment, FileSystemLoader
 from fastapi_mail import ConnectionConfig, FastMail, MessageType, MessageSchema
 
+
+def resolve_template_folder(base_dir: str) -> Path:
+    configured = Path(base_dir)
+    if configured.is_dir():
+        return configured
+
+    # Fallback for cloud deploys where local Windows paths don't exist.
+    return Path(__file__).resolve().parent / "templates"
+
 class MailService:
     def __init__(self, setting: Annotated[Configs, Depends(get_config)]):
 
         self.setting = setting
 
-        TEMPLATE_FOLDER = Path(setting.BASE_DIR)
+        TEMPLATE_FOLDER = resolve_template_folder(setting.BASE_DIR)
 
         self.config = ConnectionConfig(
     MAIL_USERNAME = self.setting.MAIL_USERNAME,
