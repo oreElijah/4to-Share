@@ -1,5 +1,7 @@
+import sentry_sdk
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+from settings.config import GlobalConfig as Config
 from app.auth.router import auth_router
 from app.user.router import user_router
 from app.post.router import post_router
@@ -13,6 +15,12 @@ async def life_span(app: FastAPI):
     print("Stopping server")
 
 version = "v1"
+
+def activate_sentry(app: FastAPI):
+    sentry_sdk.init(
+        dsn=Config.SENTRY_DSN,
+        send_default_pii=True,
+    )
 
 def register_routers(app: FastAPI):
     app.include_router(auth_router)
@@ -35,4 +43,5 @@ def create_app() -> FastAPI:
     )
 
     register_routers(app)
+    activate_sentry(app)
     return app

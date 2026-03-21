@@ -19,6 +19,7 @@ class Configs(BaseSettings):
     FRONTEND_URL: str
     UPLOAD_PATH: str
     BASE_DIR: str  
+    SENTRY_DSN: str
     CACHE_EXPIRATION_TIME: int
     IMAGEKIT_PRIVATE_KEY: str
     IMAGEKIT_PUBLIC_KEY: str

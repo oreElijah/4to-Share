@@ -238,7 +238,7 @@ def feed_page():
             with col2:
                 if post.get('is_owner', False):
                     if st.button("🗑️", key=f"delete_{post['id']}", help="Delete post"):
-                        response = requests.delete(f"http://localhost:8000/post/delete/{post['id']}", headers=get_header())
+                        response = requests.delete(f"http://localhost:8000/v1/post/delete/{post['id']}", headers=get_header())
                         if response.status_code == 200:
                             st.success("Post deleted!")
                             st.rerun()
