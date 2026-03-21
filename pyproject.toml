@@ -35,7 +35,8 @@ dependencies = [
     "bcrypt (>=5.0.0,<6.0.0)",
     "imagekitio[aiohttp] (>=5.2.0,<6.0.0)",
     "streamlit (>=1.55.0,<2.0.0)",
-    "sentry-sdk (>=2.55.0,<3.0.0)"
+    "sentry-sdk (>=2.55.0,<3.0.0)",
+    "upstash-redis (>=1.7.0,<2.0.0)"
 ]
 
 

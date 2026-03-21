@@ -14,7 +14,8 @@ class Configs(BaseSettings):
     MAIL_FROM_NAME: str
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
-    REDIS_URL: str
+    UPSTASH_REDIS_REST_URL: str
+    UPSTASH_REDIS_REST_TOKEN: str
     DOMAIN: str 
     FRONTEND_URL: str
     UPLOAD_PATH: str

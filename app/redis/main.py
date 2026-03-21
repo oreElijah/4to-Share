@@ -1,17 +1,15 @@
-import redis.asyncio as redis
+from upstash_redis import Redis
 from settings.config import GlobalConfig as Config
 import json
 
-token_blocklist = redis.from_url(
-    Config.REDIS_URL
-)
+token_blocklist = Redis(url=Config.UPSTASH_REDIS_REST_URL, token=Config.UPSTASH_REDIS_REST_TOKEN) # type: ignore
 
-async def add_jti_to_blocklist(jti: str) -> None:
-    await token_blocklist.set(
-        name=jti,
+def add_jti_to_blocklist(jti: str):
+    token_blocklist.set(
+        key=jti,
          value= "",
          ex= Config.ACCESS_TOKEN_EXPIRE_MINUTES)
     
-async def jti_in_blocklist(jti: str) -> bool:
-    msg = await token_blocklist.get(name=jti)
+def jti_in_blocklist(jti: str) -> bool:
+    msg = token_blocklist.get(key=jti)
     return msg is not None

@@ -75,7 +75,7 @@ async def delete_current_user_account(user_service: Annotated[UserService, Depen
         await user_service.delete_user(current_user)
 
         jti = str(token_data.get("jti"))
-        await add_jti_to_blocklist(jti)
+        add_jti_to_blocklist(jti)
 
         return HTTPResponse(
             message="User account deleted successfully",

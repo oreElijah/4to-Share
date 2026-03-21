@@ -1,4 +1,4 @@
-from urllib import response
+import os
 
 import streamlit as st
 import requests
@@ -7,6 +7,10 @@ import base64
 
 
 st.set_page_config(page_title="4to Share", page_icon=":camera:", layout="wide")
+
+API_BASE_URL = str(
+    st.secrets.get("API_BASE_URL", os.getenv("API_BASE_URL", "http://localhost:8000"))
+).rstrip("/")
 
 if "token" not in st.session_state:
     st.session_state.token = None
@@ -19,6 +23,10 @@ def get_header():
     if st.session_state.token:
         return {"Authorization": f"Bearer {st.session_state.token}"}
     return {}
+
+
+def api_url(path: str) -> str:
+    return f"{API_BASE_URL}{path}"
 
 
 def parse_error(response: requests.Response, fallback: str) -> str:
@@ -49,12 +57,12 @@ def login_page():
             "password": password
         }
 
-        response = requests.post("http://localhost:8000/v1/auth/login/", json=login_data)
+        response = requests.post(api_url("/v1/auth/login/"), json=login_data)
         if response.status_code == 200:
             data = response.json()
             st.session_state.token = data["data"]["access_token"]
             profile_response = requests.get(
-                "http://localhost:8000/v1/user/profile/",
+                api_url("/v1/user/profile/"),
                 headers={"Authorization": f"Bearer {st.session_state.token}"}
             )
 
@@ -90,7 +98,7 @@ def register_page():
             "password": password
         }
 
-        response = requests.post("http://localhost:8000/v1/auth/register/", json=register_data)
+        response = requests.post(api_url("/v1/auth/register/"), json=register_data)
         if response.status_code == 201:
             st.success("Registration successful. Please check your email to verify your account.")
         else:
@@ -107,7 +115,7 @@ def forgot_password_page():
     if st.button("Send Reset Email", type="primary", use_container_width=True):
         if email:
             response = requests.post(
-                "http://localhost:8000/v1/auth/forgot_password/", 
+                api_url("/v1/auth/forgot_password/"), 
                 json={"email": email}
             )
             if response.status_code == 202:
@@ -136,7 +144,7 @@ def reset_password_page(token: str):
         else:
             if st.button("Reset Password", type="primary", use_container_width=True):
                 response = requests.post(
-                    f"http://localhost:8000/v1/auth/reset_password/{token}",
+                    api_url(f"/v1/auth/reset_password/{token}"),
                     json={"new_password": new_password}
                 )
                 if response.status_code == 200:
@@ -161,7 +169,7 @@ def authenticated_home():
         st.sidebar.title("Hi there")
 
     if st.sidebar.button("Logout"):
-        response = requests.get("http://localhost:8000/v1/auth/logout/", headers=get_header())
+        response = requests.get(api_url("/v1/auth/logout/"), headers=get_header())
         st.session_state.user = None
         st.session_state.token = None
         switch_page("login")
@@ -185,7 +193,7 @@ def upload_page():
             data = {"caption": caption}
             headers = get_header()
 
-            response = requests.post("http://localhost:8000/v1/post/create_post/", files=files, data=data, headers=headers)
+            response = requests.post(api_url("/v1/post/create_post/"), files=files, data=data, headers=headers)
             if response.status_code == 201:
                 st.success("Posted")
             else:
@@ -221,7 +229,7 @@ def create_transformed_url(original_url, transformation_params, caption=None):
 def feed_page():
     st.title("Home")
 
-    response = requests.get("http://localhost:8000/v1/post/feed", headers=get_header())
+    response = requests.get(api_url("/v1/post/feed"), headers=get_header())
     if response.status_code == 200:
         posts = response.json()["data"]["post"]
 
@@ -238,7 +246,7 @@ def feed_page():
             with col2:
                 if post.get('is_owner', False):
                     if st.button("🗑️", key=f"delete_{post['id']}", help="Delete post"):
-                        response = requests.delete(f"http://localhost:8000/v1/post/delete/{post['id']}", headers=get_header())
+                        response = requests.delete(api_url(f"/v1/post/delete/{post['id']}"), headers=get_header())
                         if response.status_code == 200:
                             st.success("Post deleted!")
                             st.rerun()

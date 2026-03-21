@@ -112,7 +112,7 @@ async def redirect_reset_password(token: str):
 @auth_router.get("/logout/")
 async def logout_user(token_data: dict= Depends(AccessTokenBearer())):
     jti = str(token_data.get("jti"))
-    await add_jti_to_blocklist(jti)
+    add_jti_to_blocklist(jti) 
 
     return HTTPResponse(
         message="Logout successful",
