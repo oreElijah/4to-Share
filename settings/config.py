@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 class Configs(BaseSettings):
     DATABASE_URL: str
@@ -15,7 +16,12 @@ class Configs(BaseSettings):
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
     MAIL_TIMEOUT: int = 100
+    MAIL_MAX_RETRIES: int = 2
+    MAIL_RETRY_DELAY_SECONDS: float = 1.5
+    MAIL_ENABLED: bool = True
     MAIL_FAIL_SILENTLY: bool = True
+    RESEND_API_KEY: Optional[str] = None
+    RESEND_API_URL: str = "https://api.resend.com/emails"
     UPSTASH_REDIS_REST_URL: str
     UPSTASH_REDIS_REST_TOKEN: str
     DOMAIN: str 
