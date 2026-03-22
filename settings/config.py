@@ -14,6 +14,8 @@ class Configs(BaseSettings):
     MAIL_FROM_NAME: str
     MAIL_STARTTLS: bool = True
     MAIL_SSL_TLS: bool = False
+    MAIL_TIMEOUT: int = 30
+    MAIL_FAIL_SILENTLY: bool = True
     UPSTASH_REDIS_REST_URL: str
     UPSTASH_REDIS_REST_TOKEN: str
     DOMAIN: str 
