@@ -99,22 +99,18 @@ class MailService:
     
             send_mail_task.apply_async(kwargs={ 'message_dict': message_dict, 'config_dict': config_dict })
         else:
+            if self.setting.RESEND_API_KEY:
+                try:
+                    await self._send_with_resend(message=message)
+                    logger.info("Email sent via Resend.")
+                    return
+                except Exception as resend_exc:
+                    logger.warning("Resend send failed, falling back to SMTP: %s", resend_exc)
+
             try:
                 await self._send_with_smtp(message=message)
             except ConnectionErrors as exc:
                 logger.warning("SMTP connection failed: %s", exc)
-                if self.setting.RESEND_API_KEY:
-                    try:
-                        await self._send_with_resend(message=message)
-                        logger.info("Email sent via Resend fallback.")
-                        return
-                    except Exception as resend_exc:
-                        if self.setting.MAIL_FAIL_SILENTLY:
-                            logger.warning("Resend fallback failed: %s", resend_exc)
-                            return
-                        logger.exception("Resend fallback failed.")
-                        raise
-
                 if self.setting.MAIL_FAIL_SILENTLY:
                     return
                 raise
