@@ -261,6 +261,37 @@ def create_transformed_url(original_url, transformation_params, caption=None):
     return f"{base_url}/tr:{transformation_params}/{file_path}"
 
 
+@st.cache_data(show_spinner=False)
+def fetch_media_bytes(post_id: str, file_url: str, file_type: str, filename_hint: str) -> tuple[bytes, str, str] | None:
+    fallback_name = filename_hint or f"post_{post_id}.bin"
+
+    try:
+        response = requests.get(
+            api_url(f"/v1/post/download/{post_id}"),
+            timeout=60,
+        )
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", file_type or "application/octet-stream")
+        content_disposition = response.headers.get("content-disposition", "")
+        filename = fallback_name
+
+        if "filename=" in content_disposition:
+            filename = content_disposition.split("filename=", 1)[1].strip().strip('"') or fallback_name
+
+        return response.content, content_type, filename
+    except requests.RequestException:
+        pass
+
+    # Fallback: fetch directly from storage URL and still provide a download button.
+    try:
+        response = requests.get(file_url, timeout=60)
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", file_type or "application/octet-stream")
+        return response.content, content_type, fallback_name
+    except requests.RequestException:
+        return None
+
+
 def feed_page():
     st.title("Home")
 
@@ -283,7 +314,7 @@ def feed_page():
                 st.markdown(f"**{post['email']}** • {post['created_at'][:10]}")
             with col2:
                 if post.get('is_owner', False):
-                    if st.button("🗑️", key=f"delete_{post['id']}", help="Delete post"):
+                    if st.button("Delete", key=f"delete_{post['id']}", help="Delete post", type="secondary"):
                         response = perform_request("DELETE", f"/v1/post/delete/{post['id']}", headers=get_header())
                         if response is None:
                             return
@@ -295,17 +326,38 @@ def feed_page():
                             st.error("Failed to delete post!")
             caption = post.get('caption', '')
             file_type = str(post.get("file_type", ""))
+            file_url = str(post.get("url", ""))
+            filename = str(post.get("filename", "") or f"post_{post['id']}.bin")
 
             if file_type.startswith("image/"):
-                uniform_url = create_transformed_url(post['url'], "", caption)
+                uniform_url = create_transformed_url(file_url, "", caption)
                 st.image(uniform_url, width=300)
             elif file_type.startswith("video/"):
-                uniform_video_url = create_transformed_url(post['url'], "w-400,h-200,cm-pad_resize,bg-blurred")
+                uniform_video_url = create_transformed_url(file_url, "w-400,h-200,cm-pad_resize,bg-blurred")
                 st.video(uniform_video_url, width=300)
                 st.caption(caption)
             else:
                 st.warning(f"Unsupported media type: {file_type}")
                 st.caption(caption)
+
+            if file_url:
+                media_payload = fetch_media_bytes(
+                    str(post["id"]),
+                    file_url,
+                    file_type,
+                    filename,
+                )
+                if media_payload is not None:
+                    file_bytes, content_type, filename = media_payload
+                    st.download_button(
+                        label="Download",
+                        data=file_bytes,
+                        file_name=filename,
+                        mime=content_type,
+                        key=f"download_{post['id']}",
+                    )
+                else:
+                    st.error("Download unavailable right now. Please try again.")
 
             st.markdown("")
     else:
@@ -313,7 +365,6 @@ def feed_page():
 
 if st.session_state.token:
     authenticated_home()
-
 else:
     if "reset_token" in st.query_params:
         reset_password_page(st.query_params["reset_token"])

@@ -2,6 +2,7 @@ from sqlmodel import select, desc
 from sqlmodel.ext.asyncio.session import AsyncSession
 from typing import Annotated, Sequence
 import tempfile, shutil, os
+import httpx
 from fastapi import Depends, UploadFile, status
 from fastapi.exceptions import HTTPException
 from app.user.service import UserService
@@ -113,3 +114,32 @@ class PostService:
             if temp_file_path and os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)
             file.file.close()
+
+    async def download_post(self, post_id: str):
+        post = await self.get_post_by_id(post_id=post_id)
+        if post is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Post not found"
+            )
+
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+                response = await client.get(post.url)
+                response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Unable to fetch file. Upstream returned {exc.response.status_code}."
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Unable to fetch file from storage provider."
+            ) from exc
+
+        return {
+            "filename": post.filename,
+            "file_type": response.headers.get("content-type") or post.file_type or "application/octet-stream",
+            "content": response.content,
+        }

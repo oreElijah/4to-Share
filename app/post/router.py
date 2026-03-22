@@ -1,4 +1,4 @@
-from fastapi import Depends, status, BackgroundTasks, UploadFile, File, Form
+from fastapi import Depends, status, BackgroundTasks, UploadFile, File, Form, Response
 from fastapi.exceptions import HTTPException
 from app.post.service import PostService
 from typing import Annotated
@@ -47,4 +47,15 @@ async def delete_post(post_service: Annotated[PostService, Depends(PostService)]
         message="Post deleted successfully",
         data=None,
         status_code=status.HTTP_200_OK
+    )
+
+@post_router.get("/download/{post_id}")
+async def download_post(post_service: Annotated[PostService, Depends(PostService)],
+                        post_id: str):
+    download_payload = await post_service.download_post(post_id)
+    safe_filename = str(download_payload["filename"] or "download.bin").replace('"', "")
+    return Response(
+        content=download_payload["content"],
+        media_type=str(download_payload["file_type"]),
+        headers={"Content-Disposition": f'attachment; filename="{safe_filename}"'}
     )
