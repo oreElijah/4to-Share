@@ -31,6 +31,8 @@ class MailService:
     MAIL_FROM_NAME = self.setting.MAIL_FROM_NAME,
     MAIL_PORT = self.setting.MAIL_PORT,
     MAIL_SERVER = self.setting.MAIL_SERVER,
+    MAIL_STARTTLS = True,
+    MAIL_SSL_TLS = False,
     USE_CREDENTIALS = True,
     VALIDATE_CERTS = True,
     TEMPLATE_FOLDER=TEMPLATE_FOLDER
