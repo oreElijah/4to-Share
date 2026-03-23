@@ -1,6 +1,4 @@
 import os
-from urllib import response
-from pydantic.type_adapter import P
 import streamlit as st
 import requests
 import urllib.parse
