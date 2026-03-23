@@ -46,14 +46,14 @@ class UserService:
         user = await self.get_user_by_email(email)
         return user is not None
     
-    async def create_user(self, user_data: UserCreateSchema) -> User:
+    async def create_user(self, user_data: UserCreateSchema, request: Request | None = None) -> User:
         user_data_dict = user_data.model_dump()
 
         password = str(user_data_dict.get("password"))
      
         hashed_password = generate_password_hash(password)
 
-        IP_address = await self.get_IP_info(Request)  # type: ignore
+        IP_address = await self.get_IP_info(request) # type: ignore
      
         user_data_dict["password"] = hashed_password
         user = User(**user_data_dict, IP_address=str(IP_address))

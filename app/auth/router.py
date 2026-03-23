@@ -1,4 +1,4 @@
-from fastapi import Depends, status, BackgroundTasks, UploadFile, File
+from fastapi import Depends, status, BackgroundTasks, UploadFile, File, Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import RedirectResponse
 from app.auth.service import AuthService
@@ -29,8 +29,9 @@ async def create_user(
                       mail_service: Annotated[MailService, Depends(MailService)],
                       user_service: Annotated[UserService, Depends(UserService)],
                       background_tasks: BackgroundTasks,
+                      request: Request,
                       ):
-    user_response = await auth_service.register(register_schema, mail_service, user_service)
+    user_response = await auth_service.register(register_schema, mail_service, user_service, request)
 
     token = create_url_safe_token({"email": register_schema.email}) # type: ignore
     background_tasks.add_task(mail_service.send_verify_mail, first_name=register_schema.firstname, email=register_schema.email, verify_token=token) # type: ignore
@@ -52,8 +53,8 @@ async def verify_email(user_service: Annotated[UserService, Depends(UserService)
     return {"message": "Email verified successfully"}
 
 @auth_router.post("/login/", response_model=HTTPResponse[LoginResponseSchema])
-async def login_user(auth_service: Annotated[AuthService, Depends(AuthService)], user_service: Annotated[UserService, Depends(UserService)], login_schema: LoginRequestSchema):
-    result = await auth_service.login(login_schema, user_service)
+async def login_user(auth_service: Annotated[AuthService, Depends(AuthService)], user_service: Annotated[UserService, Depends(UserService)], login_schema: LoginRequestSchema, request: Request):
+    result = await auth_service.login(login_schema, user_service, request)
 
     return HTTPResponse(
                 message="Login successful",

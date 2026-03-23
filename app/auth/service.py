@@ -1,5 +1,5 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from datetime import timedelta
 from typing import Annotated
 from app.database.model import User
@@ -20,7 +20,7 @@ class AuthService:
         self.session = session
         self.config = config
     
-    async def login(self, login_data: LoginRequestSchema, user_service: Annotated[UserService, Depends(UserService)]) -> LoginResponseSchema:
+    async def login(self, login_data: LoginRequestSchema, user_service: Annotated[UserService, Depends(UserService)], request: Request | None = None) -> LoginResponseSchema:
         email = login_data.email
         
         user = await user_service.get_user_by_email(email=email)
@@ -33,7 +33,7 @@ class AuthService:
         password = login_data.password
         hashed_password = user.password
 
-        IP_address = await self.get_IP_info(Request)  # type: ignore
+        IP_address = await user_service.get_IP_info(request) # type: ignore
 
         if user.IP_address != str(IP_address):
             raise HTTPException(
@@ -68,7 +68,7 @@ class AuthService:
             refresh_token=refresh_token)
 
         
-    async def register(self, register_data: RegisterRequestSchema, mail_service: Annotated[MailService, Depends(MailService)], user_service: Annotated[UserService, Depends(UserService)]) -> RegisterResponseSchema:
+    async def register(self, register_data: RegisterRequestSchema, mail_service: Annotated[MailService, Depends(MailService)], user_service: Annotated[UserService, Depends(UserService)], request: Request | None = None) -> RegisterResponseSchema:
         user_exists = await user_service.user_exists(email= register_data.email)
 
         if user_exists:
@@ -77,7 +77,7 @@ class AuthService:
                 detail="User with this email already exists"
             )
 
-        user= await user_service.create_user(user_data=register_data) # type: ignore
+        user= await user_service.create_user(user_data=register_data, request=request) # type: ignore
         
         return RegisterResponseSchema(
             id=user.id,
