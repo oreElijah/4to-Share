@@ -1,3 +1,4 @@
+import httpx
 from typing import Annotated
 from pathlib import Path
 from pydantic import NameEmail
@@ -24,39 +25,38 @@ class MailService:
 
         TEMPLATE_FOLDER = resolve_template_folder(setting.BASE_DIR)
 
-        self.config = ConnectionConfig(
-    MAIL_USERNAME = self.setting.MAIL_USERNAME,
-    MAIL_PASSWORD = (self.setting.MAIL_PASSWORD), # type: ignore
-    MAIL_FROM = self.setting.MAIL_FROM,
-    MAIL_FROM_NAME = self.setting.MAIL_FROM_NAME,
-    MAIL_PORT = self.setting.MAIL_PORT,
-    MAIL_SERVER = self.setting.MAIL_SERVER,
-    MAIL_STARTTLS = True,
-    MAIL_SSL_TLS = False,
-    USE_CREDENTIALS = True,
-    VALIDATE_CERTS = True,
-    TEMPLATE_FOLDER=TEMPLATE_FOLDER
-        )
-
-        self.client = FastMail (
-            config=self.config
-        )
-
+        self.api_key = self.setting.BREVO_API_KEY
         self.jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_FOLDER))
 
-    async def send_mail(self, message: MessageSchema) -> None:
-        if False:
-            message_dict = message.model_dump()
-            message_dict["subtype"] = message_dict["subtype"].value
-            message_dict['multipart_subtype'] = message_dict['multipart_subtype'].value
+    async def send_mail(self, message):
+        url = "https://api.brevo.com/v3/smtp/email"
 
-            config_dict = self.config.model_dump()
-            config_dict["MAIL_PASSWORD"] = config_dict["MAIL_PASSWORD"].get_secret_value()
-            config_dict["TEMPLATE_FOLDER"] = config_dict["TEMPLATE_FOLDER"].as_posix()
-    
-            send_mail_task.apply_async(kwargs={ 'message_dict': message_dict, 'config_dict': config_dict })
-        else:
-            await self.client.send_message(message=message)
+        payload = {
+            "sender": {
+                "name": self.setting.MAIL_FROM_NAME,
+                "email": self.setting.MAIL_FROM
+            },
+            "to": [
+                {
+                    "email": str(r.email),
+                    "name": r.name
+                } for r in message.recipients
+            ],
+            "subject": message.subject,
+            "htmlContent": message.body
+        }
+
+        headers = {
+            "accept": "application/json",
+            "api-key": self.api_key,
+            "content-type": "application/json"
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+
+        if response.status_code >= 400:
+            raise Exception(f"Brevo error: {response.text}")
 
     async def send_password_reset(self, first_name: str, email: str, token: str) -> None:
         password_reset_template = self.jinja_env.get_template("password_reset.j2")
@@ -74,7 +74,10 @@ class MailService:
             subtype=MessageType.html
         )
 
-        await self.send_mail(message=message)
+        try:
+            await self.send_mail(message=message)
+        except Exception as e:
+            print("Email failed:", e)
 
     async def send_verify_mail(self, *, first_name: str, email: str, verify_token: str) -> None:
         verify_template = self.jinja_env.get_template("verify_mail.j2")

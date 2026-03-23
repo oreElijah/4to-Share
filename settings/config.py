@@ -12,8 +12,6 @@ class Configs(BaseSettings):
     MAIL_PORT: int   
     MAIL_SERVER: str
     MAIL_FROM_NAME: str
-    MAIL_STARTTLS: bool = True
-    MAIL_SSL_TLS: bool = False
     UPSTASH_REDIS_REST_URL: str
     UPSTASH_REDIS_REST_TOKEN: str
     DOMAIN: str 
@@ -25,6 +23,8 @@ class Configs(BaseSettings):
     IMAGEKIT_PRIVATE_KEY: str
     IMAGEKIT_PUBLIC_KEY: str
     IMAGEKIT_URL_ENDPOINT: str
+    BREVO_API_KEY : str
+    # MAIL_GUN_DOMAIN :str
 
 
 
