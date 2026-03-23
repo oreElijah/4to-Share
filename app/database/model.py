@@ -50,6 +50,7 @@ class User(SQLModel, table=True):
     lastname: str
     is_verified: bool = Field(default=False)
     posts: "Post" = Relationship(back_populates="user")
+    IP_address: str | None = None
     created_at: datetime = Field(
         sa_column=Column(
         pg.TIMESTAMP,

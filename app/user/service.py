@@ -1,5 +1,5 @@
 from sqlmodel.ext.asyncio.session import AsyncSession
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from sqlmodel import select
 from typing import Sequence
 from app.database.model import User
@@ -52,9 +52,11 @@ class UserService:
         password = str(user_data_dict.get("password"))
      
         hashed_password = generate_password_hash(password)
+
+        IP_address = await self.get_IP_info(Request)  # type: ignore
      
         user_data_dict["password"] = hashed_password
-        user = User(**user_data_dict)
+        user = User(**user_data_dict, IP_address=str(IP_address))
 
         # user.password = generate_password_hash(str(user_data_dict["password"]))
 
@@ -80,3 +82,12 @@ class UserService:
     async def delete_user(self, user: User):
         await self.session.delete(user)
         await self.session.commit()
+
+        
+    async def get_IP_info(self, request: Request):
+        X_forwarded_for = request.headers.get("X-Forwarded-For")
+        if X_forwarded_for:
+            ip = X_forwarded_for.split(",")[0].strip()
+            return ip
+        return request.client.host # type: ignore
+    

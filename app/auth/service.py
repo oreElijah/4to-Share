@@ -31,7 +31,15 @@ class AuthService:
             )
         
         password = login_data.password
-        hashed_password = user.password 
+        hashed_password = user.password
+
+        IP_address = await self.get_IP_info(Request)  # type: ignore
+
+        if user.IP_address != str(IP_address):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Login attempt from unrecognized IP address"
+            )
 
         password_valid = verify_password(plain_password=password, hashed_password=hashed_password)
         if not password_valid:
@@ -68,8 +76,7 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User with this email already exists"
             )
-        
-        
+
         user= await user_service.create_user(user_data=register_data) # type: ignore
         
         return RegisterResponseSchema(
