@@ -1,4 +1,6 @@
 import os
+from urllib import response
+from pydantic.type_adapter import P
 import streamlit as st
 import requests
 import urllib.parse
@@ -158,6 +160,27 @@ def forgot_password_page():
     if st.button("Back to Login", use_container_width=True):
         switch_page("login")
 
+def profile_page():
+    st.title("Your Profile")
+    response = perform_request("GET", "/v1/user/profile/", headers=get_header())
+    if response is None:
+        st.error("Failed to load profile information.")
+        return
+    if response.status_code != 200:
+        st.error(parse_error(response, "Failed to load profile information."))
+        return  
+    
+    user = response.json().get("data")
+    if user:
+        st.markdown(f"**Username:** {user.get('username', '')}")
+        st.markdown(f"**Email:** {user.get('email', '')}")
+        st.markdown(f"**First Name:** {user.get('firstname', '')}")
+        st.markdown(f"**Last Name:** {user.get('lastname', '')}")
+        if st.button("Update Profile"):
+            st.switch_page("profile_update")
+    else:
+        st.error("Failed to load profile information.")
+
 
 def reset_password_page(token: str):
     st.title("Set New Password")
@@ -208,12 +231,37 @@ def authenticated_home():
         st.rerun()
 
     st.sidebar.markdown("---")
-    page = st.sidebar.radio("Navigate:", ["Home", "Upload"])
+    page = st.sidebar.radio("Navigate:", ["Home", "Upload", "Profile"])
 
     if page == "Home":
         feed_page()
-    else:
+    elif page == "Upload":
         upload_page()
+    else:
+        profile_page()
+
+def update_profile():
+    st.title("Update Profile")
+    username = st.text_input("Username: ")
+    firstname = st.text_input("Firstname: ")
+    lastname = st.text_input("Lastname: ")
+    if st.button("Update", type="primary", use_container_width=True):
+        update_data = {}
+        if username or firstname or lastname:
+            update_data["username"] = username
+            update_data["firstname"] = firstname
+            update_data["lastname"] = lastname
+
+        response = perform_request("PATCH", "/v1/user/profile_update/", json=update_data, headers=get_header())
+        if response is None:
+            return
+
+        if response.status_code == 200:
+            st.success("Profile updated successfully.")
+            st.session_state.user = response.json().get("data")
+            st.rerun()
+        else:
+            st.error(parse_error(response, "Failed to update profile. Please try again."))
 
 def upload_page():
     file = st.file_uploader("Upload a photo or video", type=["jpg", "jpeg", "png", "mp4"])

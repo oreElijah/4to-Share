@@ -24,6 +24,8 @@ class UserCreateSchema(BaseModel):
 
 class UserUpdateSchema(BaseModel):
     username: str | None = None
+    firstname: str | None = None
+    lastname: str | None = None
 
 class RoleUpdateSchema(BaseModel):
     role: str
