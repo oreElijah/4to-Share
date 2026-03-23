@@ -1,8 +1,5 @@
-import logging
-import asyncio
 from typing import Annotated
 from pathlib import Path
-import httpx
 from pydantic import NameEmail
 from .processor import send_mail_task
 from settings.config import Configs, get_config
@@ -10,9 +7,6 @@ from fastapi import Depends
 from jinja2 import Environment, FileSystemLoader
 from fastapi_mail import ConnectionConfig, FastMail, MessageType, MessageSchema
 from fastapi_mail.errors import ConnectionErrors
-
-
-logger = logging.getLogger(__name__)
 
 
 def resolve_template_folder(base_dir: str) -> Path:
@@ -37,9 +31,6 @@ class MailService:
     MAIL_FROM_NAME = self.setting.MAIL_FROM_NAME,
     MAIL_PORT = self.setting.MAIL_PORT,
     MAIL_SERVER = self.setting.MAIL_SERVER,
-    MAIL_STARTTLS = self.setting.MAIL_STARTTLS,
-    MAIL_SSL_TLS = self.setting.MAIL_SSL_TLS,
-    TIMEOUT = self.setting.MAIL_TIMEOUT,
     USE_CREDENTIALS = True,
     VALIDATE_CERTS = True,
     TEMPLATE_FOLDER=TEMPLATE_FOLDER
@@ -51,43 +42,7 @@ class MailService:
 
         self.jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_FOLDER))
 
-    async def _send_with_smtp(self, message: MessageSchema) -> None:
-        attempts = max(1, self.setting.MAIL_MAX_RETRIES + 1)
-        for attempt in range(1, attempts + 1):
-            try:
-                await self.client.send_message(message=message)
-                return
-            except Exception:
-                if attempt < attempts:
-                    await asyncio.sleep(self.setting.MAIL_RETRY_DELAY_SECONDS)
-                    continue
-                raise
-
-    async def _send_with_resend(self, message: MessageSchema) -> None:
-        if not self.setting.RESEND_API_KEY:
-            raise RuntimeError("RESEND_API_KEY is not configured")
-
-        recipients = [str(recipient) for recipient in message.recipients]
-        payload = {
-            "from": f"{self.setting.MAIL_FROM_NAME} <{self.setting.MAIL_FROM}>",
-            "to": recipients,
-            "subject": message.subject,
-            "html": message.body,
-        }
-        headers = {
-            "Authorization": f"Bearer {self.setting.RESEND_API_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        async with httpx.AsyncClient(timeout=self.setting.MAIL_TIMEOUT) as client:
-            response = await client.post(self.setting.RESEND_API_URL, json=payload, headers=headers)
-            response.raise_for_status()
-
     async def send_mail(self, message: MessageSchema) -> None:
-        if not self.setting.MAIL_ENABLED:
-            logger.info("Mail sending disabled (MAIL_ENABLED=false).")
-            return
-
         if False:
             message_dict = message.model_dump()
             message_dict["subtype"] = message_dict["subtype"].value
@@ -99,28 +54,7 @@ class MailService:
     
             send_mail_task.apply_async(kwargs={ 'message_dict': message_dict, 'config_dict': config_dict })
         else:
-            if self.setting.RESEND_API_KEY:
-                try:
-                    await self._send_with_resend(message=message)
-                    logger.info("Email sent via Resend.")
-                    return
-                except Exception as resend_exc:
-                    logger.warning("Resend send failed, falling back to SMTP: %s", resend_exc)
-
-            try:
-                await self._send_with_smtp(message=message)
-            except ConnectionErrors as exc:
-                logger.warning("SMTP connection failed: %s", exc)
-                if self.setting.MAIL_FAIL_SILENTLY:
-                    return
-                raise
-            except Exception as exc:
-                if self.setting.MAIL_FAIL_SILENTLY:
-                    logger.warning("Unexpected mail error: %s", exc)
-                    return
-                logger.exception("Unexpected error while sending email.")
-                raise
-
+            await self.client.send_message(message=message)
 
     async def send_password_reset(self, first_name: str, email: str, token: str) -> None:
         password_reset_template = self.jinja_env.get_template("password_reset.j2")
