@@ -24,6 +24,8 @@ if "user" not in st.session_state:
     st.session_state.user = None
 if "page" not in st.session_state:
     st.session_state.page = "login"
+if "profile_mode" not in st.session_state:
+    st.session_state.profile_mode = "view"
 
 def get_header():
     if st.session_state.token:
@@ -175,7 +177,8 @@ def profile_page():
         st.markdown(f"**First Name:** {user.get('firstname', '')}")
         st.markdown(f"**Last Name:** {user.get('lastname', '')}")
         if st.button("Update Profile"):
-            st.switch_page("profile_update")
+            st.session_state.profile_mode = "edit"
+            st.rerun()
     else:
         st.error("Failed to load profile information.")
 
@@ -236,7 +239,10 @@ def authenticated_home():
     elif page == "Upload":
         upload_page()
     else:
-        profile_page()
+        if st.session_state.profile_mode == "edit":
+            update_profile()
+        else:
+            profile_page()
 
 def update_profile():
     st.title("Update Profile")
@@ -257,9 +263,14 @@ def update_profile():
         if response.status_code == 200:
             st.success("Profile updated successfully.")
             st.session_state.user = response.json().get("data")
+            st.session_state.profile_mode = "view"
             st.rerun()
         else:
             st.error(parse_error(response, "Failed to update profile. Please try again."))
+
+    if st.button("Back to Profile"):
+        st.session_state.profile_mode = "view"
+        st.rerun()
 
 def upload_page():
     file = st.file_uploader("Upload a photo or video", type=["jpg", "jpeg", "png", "mp4"])
