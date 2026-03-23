@@ -35,11 +35,11 @@ class AuthService:
 
         IP_address = await user_service.get_IP_info(request) # type: ignore
 
-        if user.IP_address != str(IP_address):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Login attempt from unrecognized IP address"
-            )
+        # if user.IP_address != str(IP_address):
+        #     raise HTTPException(
+        #         status_code=status.HTTP_401_UNAUTHORIZED,
+        #         detail="Login attempt from unrecognized IP address"
+        #     )
 
         password_valid = verify_password(plain_password=password, hashed_password=hashed_password)
         if not password_valid:
