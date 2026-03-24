@@ -124,22 +124,24 @@ class PostService:
             )
 
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            async with httpx.AsyncClient(
+                follow_redirects=True,
+                timeout=60.0,
+                headers={"User-Agent": "PhotoSharingDownload/1.0"},
+            ) as client:
                 response = await client.get(post.url)
                 response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Unable to fetch file. Upstream returned {exc.response.status_code}."
-            ) from exc
-        except httpx.HTTPError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Unable to fetch file from storage provider."
-            ) from exc
+        except httpx.HTTPError:
+            return {
+                "filename": post.filename,
+                "file_type": post.file_type or "application/octet-stream",
+                "content": None,
+                "redirect_url": post.url,
+            }
 
         return {
             "filename": post.filename,
             "file_type": response.headers.get("content-type") or post.file_type or "application/octet-stream",
             "content": response.content,
+            "redirect_url": None,
         }

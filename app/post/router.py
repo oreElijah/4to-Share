@@ -1,4 +1,5 @@
 from fastapi import Depends, status, BackgroundTasks, UploadFile, File, Form, Response
+from fastapi.responses import RedirectResponse
 from fastapi.exceptions import HTTPException
 from app.post.service import PostService
 from typing import Annotated
@@ -53,6 +54,10 @@ async def delete_post(post_service: Annotated[PostService, Depends(PostService)]
 async def download_post(post_service: Annotated[PostService, Depends(PostService)],
                         post_id: str):
     download_payload = await post_service.download_post(post_id)
+    redirect_url = download_payload.get("redirect_url")
+    if redirect_url:
+        return RedirectResponse(url=str(redirect_url), status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+
     safe_filename = str(download_payload["filename"] or "download.bin").replace('"', "")
     return Response(
         content=download_payload["content"],
