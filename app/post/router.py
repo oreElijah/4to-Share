@@ -15,7 +15,7 @@ post_router = VersionRouter(
     tags=["post"]
 )
 
-@post_router.post("/create_post", response_model=HTTPResponse[PostResponseSchema], status_code=status.HTTP_201_CREATED)
+@post_router.post("/create_post/", response_model=HTTPResponse[PostResponseSchema], status_code=status.HTTP_201_CREATED, include_in_schema=False)
 async def create_post(post_service: Annotated[PostService, Depends(PostService)],
                         file: UploadFile = File(...),
                         caption: str = Form(""),
@@ -27,7 +27,7 @@ async def create_post(post_service: Annotated[PostService, Depends(PostService)]
         status_code=status.HTTP_201_CREATED
     )
 
-@post_router.get("/feed", response_model=HTTPResponse[FeedResponseSchema])
+@post_router.get("/feed/", response_model=HTTPResponse[FeedResponseSchema])
 async def get_feed(post_service: Annotated[PostService, Depends(PostService)],
                     user: User = Depends(get_current_user)):
     

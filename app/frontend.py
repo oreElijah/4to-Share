@@ -290,7 +290,8 @@ def upload_page():
                 st.success("Posted")
             else:
                 st.error(parse_error(response, "File upload failed. Please try again."))
-    else:
+
+    if not file:
         st.error("Please select a file to upload.")
 
 
@@ -352,7 +353,7 @@ def fetch_media_bytes(post_id: str, file_url: str, file_type: str, filename_hint
 def feed_page():
     st.title("Home")
 
-    response = perform_request("GET", "/v1/post/feed", headers=get_header())
+    response = perform_request("GET", "/v1/post/feed/", headers=get_header())
     if response is None:
         return
 
