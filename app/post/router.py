@@ -1,5 +1,4 @@
 from fastapi import Depends, status, BackgroundTasks, UploadFile, File, Form, Response
-from fastapi.responses import RedirectResponse
 from fastapi.exceptions import HTTPException
 from app.post.service import PostService
 from typing import Annotated
@@ -16,7 +15,7 @@ post_router = VersionRouter(
     tags=["post"]
 )
 
-@post_router.post("/create_post/", response_model=HTTPResponse[PostResponseSchema], status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@post_router.post("/create_post", response_model=HTTPResponse[PostResponseSchema], status_code=status.HTTP_201_CREATED)
 async def create_post(post_service: Annotated[PostService, Depends(PostService)],
                         file: UploadFile = File(...),
                         caption: str = Form(""),
@@ -28,7 +27,7 @@ async def create_post(post_service: Annotated[PostService, Depends(PostService)]
         status_code=status.HTTP_201_CREATED
     )
 
-@post_router.get("/feed/", response_model=HTTPResponse[FeedResponseSchema])
+@post_router.get("/feed", response_model=HTTPResponse[FeedResponseSchema])
 async def get_feed(post_service: Annotated[PostService, Depends(PostService)],
                     user: User = Depends(get_current_user)):
     
@@ -54,10 +53,6 @@ async def delete_post(post_service: Annotated[PostService, Depends(PostService)]
 async def download_post(post_service: Annotated[PostService, Depends(PostService)],
                         post_id: str):
     download_payload = await post_service.download_post(post_id)
-    redirect_url = download_payload.get("redirect_url")
-    if redirect_url:
-        return RedirectResponse(url=str(redirect_url), status_code=status.HTTP_307_TEMPORARY_REDIRECT)
-
     safe_filename = str(download_payload["filename"] or "download.bin").replace('"', "")
     return Response(
         content=download_payload["content"],

@@ -24,8 +24,6 @@ if "user" not in st.session_state:
     st.session_state.user = None
 if "page" not in st.session_state:
     st.session_state.page = "login"
-if "profile_mode" not in st.session_state:
-    st.session_state.profile_mode = "view"
 
 def get_header():
     if st.session_state.token:
@@ -160,28 +158,6 @@ def forgot_password_page():
     if st.button("Back to Login", use_container_width=True):
         switch_page("login")
 
-def profile_page():
-    st.title("Your Profile")
-    response = perform_request("GET", "/v1/user/profile/", headers=get_header())
-    if response is None:
-        st.error("Failed to load profile information.")
-        return
-    if response.status_code != 200:
-        st.error(parse_error(response, "Failed to load profile information."))
-        return  
-    
-    user = response.json().get("data")
-    if user:
-        st.markdown(f"**Username:** {user.get('username', '')}")
-        st.markdown(f"**Email:** {user.get('email', '')}")
-        st.markdown(f"**First Name:** {user.get('firstname', '')}")
-        st.markdown(f"**Last Name:** {user.get('lastname', '')}")
-        if st.button("Update Profile"):
-            st.session_state.profile_mode = "edit"
-            st.rerun()
-    else:
-        st.error("Failed to load profile information.")
-
 
 def reset_password_page(token: str):
     st.title("Set New Password")
@@ -232,45 +208,12 @@ def authenticated_home():
         st.rerun()
 
     st.sidebar.markdown("---")
-    page = st.sidebar.radio("Navigate:", ["Home", "Upload", "Profile"])
+    page = st.sidebar.radio("Navigate:", ["Home", "Upload"])
 
     if page == "Home":
         feed_page()
-    elif page == "Upload":
-        upload_page()
     else:
-        if st.session_state.profile_mode == "edit":
-            update_profile()
-        else:
-            profile_page()
-
-def update_profile():
-    st.title("Update Profile")
-    username = st.text_input("Username: ")
-    firstname = st.text_input("Firstname: ")
-    lastname = st.text_input("Lastname: ")
-    if st.button("Update", type="primary", use_container_width=True):
-        update_data = {}
-        if username or firstname or lastname:
-            update_data["username"] = username
-            update_data["firstname"] = firstname
-            update_data["lastname"] = lastname
-
-        response = perform_request("PATCH", "/v1/user/profile_update/", json=update_data, headers=get_header())
-        if response is None:
-            return
-
-        if response.status_code == 200:
-            st.success("Profile updated successfully.")
-            st.session_state.user = response.json().get("data")
-            st.session_state.profile_mode = "view"
-            st.rerun()
-        else:
-            st.error(parse_error(response, "Failed to update profile. Please try again."))
-
-    if st.button("Back to Profile"):
-        st.session_state.profile_mode = "view"
-        st.rerun()
+        upload_page()
 
 def upload_page():
     file = st.file_uploader("Upload a photo or video", type=["jpg", "jpeg", "png", "mp4"])
@@ -290,8 +233,7 @@ def upload_page():
                 st.success("Posted")
             else:
                 st.error(parse_error(response, "File upload failed. Please try again."))
-
-    if not file:
+    else:
         st.error("Please select a file to upload.")
 
 
@@ -320,16 +262,15 @@ def create_transformed_url(original_url, transformation_params, caption=None):
 
 
 @st.cache_data(show_spinner=False)
-def fetch_media_bytes(post_id: str, file_url: str, file_type: str, filename_hint: str) -> tuple[bytes, str, str] | None:
-    fallback_name = filename_hint or f"post_{post_id}.bin"
-
+def fetch_media_bytes(post_id: str) -> tuple[bytes, str, str] | None:
     try:
         response = requests.get(
             api_url(f"/v1/post/download/{post_id}"),
-            timeout=60,
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
-        content_type = response.headers.get("content-type", file_type or "application/octet-stream")
+        content_type = response.headers.get("content-type", "application/octet-stream")
+        fallback_name = f"post_{post_id}.bin"
         content_disposition = response.headers.get("content-disposition", "")
         filename = fallback_name
 
@@ -338,22 +279,13 @@ def fetch_media_bytes(post_id: str, file_url: str, file_type: str, filename_hint
 
         return response.content, content_type, filename
     except requests.RequestException:
-        pass
-
-    # Fallback: fetch directly from storage URL and still provide a download button.
-    try:
-        response = requests.get(file_url, timeout=60)
-        response.raise_for_status()
-        content_type = response.headers.get("content-type", file_type or "application/octet-stream")
-        return response.content, content_type, fallback_name
-    except requests.RequestException:
         return None
 
 
 def feed_page():
     st.title("Home")
 
-    response = perform_request("GET", "/v1/post/feed/", headers=get_header())
+    response = perform_request("GET", "/v1/post/feed", headers=get_header())
     if response is None:
         return
 
@@ -372,7 +304,7 @@ def feed_page():
                 st.markdown(f"**{post['email']}** • {post['created_at'][:10]}")
             with col2:
                 if post.get('is_owner', False):
-                    if st.button("Delete", key=f"delete_{post['id']}", help="Delete post", type="secondary"):
+                    if st.button("🗑️", key=f"delete_{post['id']}", help="Delete post"):
                         response = perform_request("DELETE", f"/v1/post/delete/{post['id']}", headers=get_header())
                         if response is None:
                             return
@@ -385,7 +317,6 @@ def feed_page():
             caption = post.get('caption', '')
             file_type = str(post.get("file_type", ""))
             file_url = str(post.get("url", ""))
-            filename = str(post.get("filename", "") or f"post_{post['id']}.bin")
 
             if file_type.startswith("image/"):
                 uniform_url = create_transformed_url(file_url, "", caption)
@@ -399,12 +330,7 @@ def feed_page():
                 st.caption(caption)
 
             if file_url:
-                media_payload = fetch_media_bytes(
-                    str(post["id"]),
-                    file_url,
-                    file_type,
-                    filename,
-                )
+                media_payload = fetch_media_bytes(str(post["id"]))
                 if media_payload is not None:
                     file_bytes, content_type, filename = media_payload
                     st.download_button(
@@ -415,7 +341,7 @@ def feed_page():
                         key=f"download_{post['id']}",
                     )
                 else:
-                    st.error("Download unavailable right now. Please try again.")
+                    st.link_button("Open Media", file_url)
 
             st.markdown("")
     else:
@@ -423,6 +349,7 @@ def feed_page():
 
 if st.session_state.token:
     authenticated_home()
+
 else:
     if "reset_token" in st.query_params:
         reset_password_page(st.query_params["reset_token"])
